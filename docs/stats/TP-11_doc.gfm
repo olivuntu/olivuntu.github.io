@@ -1,0 +1,173 @@
+------------------------------------------------------------------------
+
+# Cas d’étude
+
+On s’intéresse à la fécondité de deux espèces de Protéacées (*Protea
+lepidocarpodendron* et *Protea repens*, \[@Higgins2008\]), famille
+botanique très diversifiée du Fynbos, écosystème emblématique d’Afrique
+du Sud (Fig. 1). Le fynbos est présent en climat méditerranéen (province
+du Cap) et très dépendant de la dynamique naturelle des incendies. Parmi
+les Protéacées, une adaptation répandue est la sérotinie, la capacité de
+produire des cônes ligneux qui restent fermés à maturité mais qui
+s’ouvrent sous l’action du feu, permettant ainsi la dispersion des
+graînes après perturbation de l’écosystème par les incendies.
+
+<div id="fig:protea" class="subfigures">
+
+<img src="Biostats/fynbos.jpg" title="fig:" style="height:7cm" alt="a" /> <img src="Biostats/rep-specimen.jpg" title="fig:" style="height:7cm" alt="b" />
+
+Figure 1: Vue du fynbos en Afrique du Sud (a, noter le sol sableux),
+Individu adulte de *Protea repens*, une des deux espèces étudiées (b)..
+
+</div>
+
+Vous souhaitez savoir si :
+
+1.  il existe une relation allométrique entre la taille des individus et
+    la fécondité,
+2.  l’allométrie varie entre les deux espèces étudiées ?
+
+## Import et exploration des données
+
+Inspecter la structure et le résumé du tableau.
+
+### Transformation des données
+
+Le tableau, relativement simple, est sous un format **large** :
+plusieurs colonnes (variables) pour une même unité statistique
+(individu). On peut le transformer au format **long** grâce à la
+fonction `melt` du *package* `reshape2`.
+
+Inspecter la structure du nouvel objet au format long.
+
+## Exploration graphique
+
+Utiliser la grammaire graphique pour l’exploration suivante :
+
+1.  Représenter les distributions univariées des variables chez les deux
+    espèces.
+
+2.  Produire un graphique permettant de comparer les distributions des
+    variables chez les deux espèces.
+
+3.  Représenter la relation bivariée entre la hauteur et le nombre de
+    cônes (utiliser l’objet `protea`). Pensez-vous qu’une relation
+    d’allométrie existe ? La relation semble-t-elle linéaire ? Examiner
+    la relation en utilisant une échelle logarithmique sur l’axe
+    vertical.
+
+## Transformation des données
+
+Les données issus de comptage d’objets en relative grand nombre (ici les
+cônes) sont souvent distribués de façon *log-normale* : une
+transformation logarithmique rend les distributions plus proches d’une
+distribution normale[1].
+
+Ajouter une colonne correspondant au logarithme du nombre de cônes au
+tableau.
+
+# Analyse de corrélation
+
+## Estimation de la covariance
+
+Estimer la valeur de la covariance entre la hauteur des individus et le
+nombre de cônes transformées par la fonction `log`.
+
+## Calcul des coefficients de corrélation
+
+Réaliser des tests de corrélation en utilisant deux coefficients de
+corrélation différents. Comparer les résultats.
+
+Retrouver la valeur du coefficient de corrélation de Pearson à partir de
+la covariance.
+
+Vérifier que le coefficient de Spearman est le même sur les données
+nonè-transformées (rangs inchangés par la transformation `log`)
+
+# Modèle linéaire
+
+Un modèle statistique s’écrit toujours sous forme d’une formule dans  :
+*Y* ∼ *X*. On considère ici la relation entre le nombre de cônes et la
+hauteur des individus.
+
+## Modèle sur données initiales
+
+1.  Estimer les paramètres de la relation précédente en calibrant un
+    modèle linéaire simple (fonction `lm`).
+
+2.  Etudier la structure des deux objets `mod` et `res` : classe, noms,
+    éléments.
+
+## Diagnostic du modèle
+
+Le diagnostic d’un modèle linéaire passe par l’examen :
+
+1.  de la normalité des résidus :
+    1.  Représenter un graphique quantiles-quantiles des résidus
+        (*residuals*, `$residuals`, ou fonction `resid()`)
+    2.  Tester la normalité à l’aide d’un test
+
+2.  de l’homosédasticité des résidus : on se contente ici d’un
+    diagnostic graphique.
+    -   Représenter les résidus en fonction de valeurs estimées
+        (*fitted*, `$fitted.values`, ou fonction `fitted()`)
+
+Dans , on peut obtenir plusieurs graphiques diagnostics facilement en
+utilisant la fonction générique `plot` (s’adapte à la classe de
+l’objet).
+
+On vérifier également si les résidus sont bien centrés autour de 0
+(erreur nulle en espérance).
+
+## Modèle sur données transformées
+
+Ce modèle est-il plus correct que le précédent ? (Visualiser les
+graphiques de diagnostique)
+
+Comparer avec un modèle sans intercept (ordonnée à l’origine) : on
+utilise -1 dans la formule du modèle.
+
+#### Valeurs atypiques et influentes
+
+Les graphics diagnostics peuvent révéler la présence d’observations mal
+prises en compte dans le modèle (atypiques[2]) et / ou influentes[3]
+
+# Interpréation du modèle
+
+## Qualité d’ajustement du modèle
+
+La qualité d’ajustement mesure à quel point les valeurs estimées
+sont-elles proches des valeurs observées, ou encore le pourcentage de
+variance de la variable réponse expliquée par la (les) variable(s)
+explicative(s).
+
+## Interprétation des coefficients
+
+Quelles sont les valeurs des pentes et ordonnée à l’origine du modèle
+calibré ? Sont-elles significativement différentes de 0 ?
+
+Retrouver les valeurs des coefficiens d’après les formules du cours
+(solution des moindres carrés);
+
+Représenter la relation estimée sur le graphique de la relation.
+
+# Comparaison entre espèces
+
+On examine la possibilié de relations alliométriques différentes entre
+les deux espèces.
+
+Calibrer un modèle par espèce et comparer les pentes des relations.
+
+**Conclusion** : l’allométrie entre le nombre de cônes (transformé) et
+la hauteur des individus est-elle différente entre les deux espèces ?
+
+[1] On déconseille en général les transformations de données, car il
+s’agit bien de changer de variable : la variable concernée est modifiée,
+par une fonction mathématique (`log`, racine carrée, etc). La
+transformation reste une alternative possible pour améliorer la
+normalité  dans les cas de données non-normales.
+
+[2] résidu associé extrême en valeur absolue
+
+[3] qui influence fortement les valeurs estimées des paramètres de la
+relation (coefficients de régression).

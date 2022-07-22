@@ -1,0 +1,439 @@
+Pourquoi les modèles additifs ?
+===============================
+
+Cas d’étude
+-----------
+
+La bioluminescence des organismes présents sur le fond marin
+pélagique[1] est étudiée le long de profils de profondeur. Une caméra
+est déployée en profondeur à chaque station et la luminescence est
+mesurée comme le nombre d’événements lumineux par minute.
+
+<div id="fig:gilli" class="subfigures">
+
+<img src="Biostats/gillibrand_deep_2006_Fig1" title="fig:" style="height:7cm" alt="a" /> <img src="Biostats/gillibrand_deep_2006_Fig4" title="fig:" style="height:7cm" alt="b" />
+
+Figure 1: :a) Cartographie des stations d’échantillonnage
+\[@gillibrand\_deep\_2006\], b) Image d’une stimulation de la
+bioluminescence par amorçage à base d’appât
+\[@gillibrand\_deep\_2006\]..
+
+</div>
+
+### Import des données
+
+    > isit <- read.table("data/ISIT.txt", header = T)
+    > isit$Station <- factor(isit$Station)
+
+Pour faciliter les représentations graphiques, on peut trier les données
+par ordre de profondeur croissante pour chaque station échantillonnée.
+Pour cela, charger la librairie `doBy` : `library(doBy)`.
+
+    > isit <- orderBy(~ Station + SampleDepth, data = isit)
+
+Exploration graphique
+---------------------
+
+L’examen des relations entre la variable réponse et la profondeur révèle
+une diversité de situations et de formes de courbes de réponse
+(Fig. **¿fig:fig2-11?**).
+
+    > ggplot(isit) +
+    +  aes(x = SampleDepth, y = Sources) +
+    +  geom_line() +
+    +  facet_wrap(~ Station) +
+    +  rotate_x_text(angle = 45) # package 'ggpubr'
+    >  #+ theme(axis.text = element_text(angle = 45, size = rel(0.7)))
+
+Ce constat suffit pour orienter l’approche vers la modélisation de
+courbes de réponse non linéaires. Ceci peut être réalisé à l’aide de
+modèles de type GAM.
+
+Description des GAM
+-------------------
+
+Courbes de réponse non linéaires
+--------------------------------
+
+Les relations entre variables écologiques ne sont pas toujours
+linéaires, ou quadratiques, ni même facilement identifiables. Les
+modèles additifs généralisés (*Generalized Additive Model*) permettent
+de modéliser des courbes de réponse. Ils sont basés pour cela sur des
+fonctions *f* dites de *lissage*. Un modèle GAM s’écrit :
+
+$$Y=\\alpha+f(X)+\\epsilon,\~\\mathrm{avec}\~\\epsilon\\sim\\normc$$
+
+Les relations entre *Y* et la (les) variable(s) explicative(s) sont
+estimées par morceaux, c’est-à-dire dans un certain nombre d’intervalles
+couvrant la gamme de variation de la variable explicative considérée
+(Fig. ).
+
+Hypothèses et diagnostic
+------------------------
+
+Comme les modèles LM, les modèles GAM sont basés sur les hypothèses
+d’**indépendance des observations**, **normalité des résidus** et
+**homogénéité de la variance résiduelle**. Les diagnostics concernant
+ces hypothèses sont là aussi effectués *a posteriori* à l’aide des mêmes
+approches et outils, notamment graphiques, que pour les LM et GLM.
+
+Deux méthodes de lissage
+------------------------
+
+### Par fonction LOESS
+
+L’approche consiste à estimer la valeur *Ŷ*<sub>0</sub> au centre
+*X*<sub>0</sub> d’une fenêtre glissante (Fig. **¿fig:fig3-2?**), définie
+par une intervalle mobile de valeurs sur l’axe des abscisses (*X*). La
+valeur de *Ŷ*<sub>0</sub> est estimée soit :
+
+-   comme la moyenne, ou médiane, des valeurs des observations
+    *y*<sub>*i*</sub> contenues dans la fenêtre,
+-   à partir d’une régression linéaire simple (ou polynomiale) des
+    valeurs *y*<sub>*i*</sub> dans la fenêtre sur les valeurs
+    *x*<sub>*i*</sub> correspondantes (Fig. **¿fig:fig3-2?**). Cette
+    méthode est la méthode LOESS (*local regression smoother*).
+
+La fenêtre se déplace le long de l’axe des abscisses afin de couvrir
+l’ensemble des valeurs prises par *X*, ce qui peut poser problème pour
+les estimations aux limites de la gamme d’observation.
+
+#### Calibration
+
+Dans , la librairie `gam` utilise une approche simple d’estimation
+(*back fitting algorithm*). Charger la librairie `gam` :
+
+    > library(gam)    
+
+Calibration d’un modèle à une variable explicative :
+
+La commande `lo(Depth, span = 0.5)` indique que la taille de la fenêtre
+est choisie de façon à ce que celle-ci contienne 50 % des données à
+chaque déplacement.
+
+#### Choix de la taille de la fenêtre
+
+La taille de la fenêtre influence la variance résiduelle et le biais
+dans les estimations :
+
+-   une fenêtre étroite conduit à des estimations plus proches des
+    observations mais avec une précision faible,
+-   une fenêtre large conduit à une moins bonne estimation des valeurs
+    observées, mais avec une meilleure précision (+ grand nombre
+    d’observations pour l’estimation).
+
+<figure>
+<img src="Biostats/zuur_mixed_2009_Fig3-3" id="fig.3-3" alt="Effet de la largeur de fenêtre glissante sur la forme de la courbe de réponse." /><figcaption aria-hidden="true">Effet de la largeur de fenêtre glissante sur la forme de la courbe de réponse.</figcaption>
+</figure>
+
+    > Sources1 <- isit$Sources[isit$Station == 16]
+    > Depth1 <- isit$SampleDepth[isit$Station == 16]
+    > M1 <- gam(Sources1 ~ lo(Depth1, span = 0.1))
+    > M2 <- gam(Sources1 ~ lo(Depth1, span = 0.15))
+    > M3 <- gam(Sources1 ~ lo(Depth1, span = 0.2))
+    > M4 <- gam(Sources1 ~ lo(Depth1, span = 0.25))
+    > M5 <- gam(Sources1 ~ lo(Depth1, span = 0.3))
+    > M6 <- gam(Sources1 ~ lo(Depth1, span = 0.5))
+    > M7 <- gam(Sources1 ~ lo(Depth1, span = 0.7))
+    > M8 <- gam(Sources1 ~ lo(Depth1, span = 0.8))
+    > M9 <- gam(Sources1 ~ lo(Depth1, span = 0.9))
+    > M10 <- gam(Sources1 ~ lo(Depth1, span = 1.0))
+
+    > AIC(M1, M, M3, M4, M5, M6, M7, M8, M9, M10)
+
+    ##     df      AIC
+    ## M1   3 355.1904
+    ## M    3 296.3008
+    ## M3   3 355.1904
+    ## M4   3 355.1904
+    ## M5   3 355.1904
+    ## M6   3 355.1904
+    ## M7   3 355.1904
+    ## M8   3 355.1904
+    ## M9   3 355.1904
+    ## M10  3 355.1904
+
+### Examen des résidus
+
+L’examen des résidus montre la présence d’hétérogénéité dans la
+variance, la relation entre les résidus et la profondeur (pas de biais
+valeurs successives négatives et positives), et des résidus non normaux
+(Fig. **¿fig:fig3-4?**).
+
+    > M <- gam(Sources ~ lo(SampleDepth, span = 0.5), data = dat)
+    > summary(M)
+
+    ## 
+    ## Call: gam(formula = Sources ~ lo(SampleDepth, span = 0.5), data = dat)
+    ## Deviance Residuals:
+    ##     Min      1Q  Median      3Q     Max 
+    ## -9.6269 -1.5006  0.1851  0.9567  9.8640 
+    ## 
+    ## (Dispersion Parameter for gaussian family taken to be 17.3085)
+    ## 
+    ##     Null Deviance: 11515.03 on 50 degrees of freedom
+    ## Residual Deviance: 807.3497 on 46.6447 degrees of freedom
+    ## AIC: 296.3008 
+    ## 
+    ## Number of Local Scoring Iterations: NA 
+    ## 
+    ## Anova for Parametric Effects
+    ##                                 Df Sum Sq Mean Sq F value    Pr(>F)    
+    ## lo(SampleDepth, span = 0.5)  1.000 8705.4  8705.4  502.95 < 2.2e-16 ***
+    ## Residuals                   46.645  807.3    17.3                      
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+    ## 
+    ## Anova for Nonparametric Effects
+    ##                             Npar Df Npar F     Pr(F)    
+    ## (Intercept)                                             
+    ## lo(SampleDepth, span = 0.5)     2.4 49.116 4.197e-13 ***
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+    > E2 <- resid(M)
+    > F2 <- fitted(M)
+    > par(mfrow = c(2, 2), mar = c(5, 4, 2, 2))
+    > plot(x = F2, y = E2, xlab = "Fitted values", ylab = "Residuals", main ="a.")
+    > plot(x = dat$SampleDepth, y = E2, xlab = "Depth", ylab = "Residuals", main ="b.")
+    > hist(E2, xlab = "Residuals", breaks = 20, main = "c.")
+
+On peut alors essayer une autre taille de fenêtre, ou choisir une
+approche suivant la deuxième méthode de lissage avec la librairie
+`mgcv`.
+
+### Approche par fonctions de lissage
+
+Il est possible d’utiliser des fonctions plus complexes comme fonctions
+de lissage. Ces fonctions sont définies à partir d’un ensemble, appelé
+*base*, de fonctions simples *b*<sub>*i*</sub> :
+
+$$f(X)=\\slim\_{i=1}^p \\beta\_i\\times b\_i(X)$$
+
+où les paramètres *β*<sub>*i*</sub> sont inconnus et doivent être
+estimés à partir des données.
+
+L’approche la plus simple est de considérer des fonctions de puissances
+entières : *b*<sub>*i*</sub>(*X*) = *X*<sup>*i* − 1</sup>. Par exemple
+pour *p* = 4, *b*<sub>1</sub>(*X*) = 1, *b*<sub>2</sub>(*X*) = *X*,
+*b*<sub>3</sub>(*X*) = *X*<sup>2</sup>,
+*b*<sub>4</sub>(*X*) = *X*<sup>3</sup> : la fonction est alors un
+polynôme de degré 3 :
+
+*f*(*X*) = *β*<sub>1</sub> + *β*<sub>2</sub>*X* + *β*<sub>3</sub>*X*<sup>2</sup> + *β*<sub>4</sub>*X*<sup>3</sup>
+
+La courbe de réponse peut prendre des formes variées selon les valeurs
+des paramètres *β*<sub>*i*</sub> (Fig. ).
+
+Comme dans l’approche LOESS, les courbes de réponse sont estimées par
+morceaux : il est nécessaire d’estimer les valeurs *ŷ*<sub>*i*</sub> aux
+limites des intervalles. Les limites des intervalles sur
+*X*<sub>*i*</sub> sont appelés .
+
+#### Calibration
+
+Pour des raisons d’incompatibilité, les *packages* `gam` et `mgcv` ne
+peuvent pas être chargés en même temps :
+
+-   quitter  et relancer le programme avant de charger la librarie
+    `mgcv`,
+-   ou “détacher” le *package* : `detach("package:gam")`.
+
+1.  Charger la librairie `mgcv` :
+
+<!-- -->
+
+    > library(mgcv)
+
+1.  Calibrer le modèle à l’aide de la commande suivante :
+
+<!-- -->
+
+    > M3 <- mgcv::gam(Sources  ~  s(SampleDepth, fx = FALSE, k = -1, bs = "cr"), data = dat)
+    > summary(M3)
+
+    ## 
+    ## Family: gaussian 
+    ## Link function: identity 
+    ## 
+    ## Formula:
+    ## Sources ~ s(SampleDepth, fx = FALSE, k = -1, bs = "cr")
+    ## 
+    ## Parametric coefficients:
+    ##             Estimate Std. Error t value Pr(>|t|)    
+    ## (Intercept)  12.4771     0.3711   33.62   <2e-16 ***
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+    ## 
+    ## Approximate significance of smooth terms:
+    ##                  edf Ref.df     F p-value    
+    ## s(SampleDepth) 8.817   8.99 177.7  <2e-16 ***
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+    ## 
+    ## R-sq.(adj) =   0.97   Deviance explained = 97.5%
+    ## GCV = 8.6978  Scale est. = 7.0236    n = 51
+
+L’argument `fx = FALSE` indique que l’importance du lissage n’est pas
+fixée *a priori* mais déterminée par la fonction (selon une méthode de
+*validation croisée*).
+
+Exemple de GAM en régression multiple
+=====================================
+
+Modèle avec variables explicatives multiples
+--------------------------------------------
+
+Comme dans un modèle de régression linéaire, il est possible de tester
+l’influence de plusieurs variables explicatives simultanément. Un modèle
+GAM à deux variables explicatives s’écrit :
+
+$$Y=\\alpha+f\_1(X\_1)+f\_2(X\_2)+\\epsilon,\~\\mathrm{avec}\~\\epsilon\\sim\\normc$$
+
+On peut également ajouter des variables qualitatives (facteurs). Comme
+dans le cas des modèles linéaires vu précédemment, la (multi)colinéarité
+pouvant exister au sein des variables explicatives peut poser problème
+dans l’estimation des paramètres des modèles..
+
+Cas d’étude
+-----------
+
+L’exemple suivant porte sur la richesse spécifique de parcelles de
+prairie dans le parc national de Yellowstone. L’objectif de l’étude est
+de **déterminer si la diversité des communautés étudiées varie en
+fonction de variables environnementales** (et/ou au cours du temps,
+aspect non traîté ici). On considère ici uniquement une nombre réduit de
+variables explicatives considérées comme importantes par les auteurs.
+
+    > vege <- read.table("data/Vegetation.txt",header=T)
+    > # Suppression des 3 premières colonnes
+    > vege <- vege[, -(1 : 3)]
+
+    > # Analyse des corrélations
+    > cor(vege, use = "pairwise.complete.obs")
+
+    > # Voir l'aide de la fonction 'pairs'
+    > panel.cor <- function(x, y, digits = 1, prefix = "", cex.cor = 6)
+    + {
+    +   usr <- par("usr"); on.exit(par(usr))
+    +   par(usr = c(0, 1, 0, 1))
+    +   r1 <- cor(x, y, method = "spearman", use = "pairwise.complete.obs")
+    +   r <- abs(r1)
+    +   txt <- format(c(r1, 0.123456789), digits = digits)[1]
+    +   txt <- paste(prefix, txt, sep = "")
+    +   if(missing(cex.cor)) { cex <- 0.9 / strwidth(txt) } else {
+    +      cex = cex.cor}
+    +   text(0.5, 0.5, txt, cex = cex * r)
+    + }
+
+    > pairs(vege, upper.panel = panel.smooth, lower.panel = panel.cor, cex.labels = 1.5)
+
+Calibration du modèle
+---------------------
+
+L’importance du lissage peut être défini automatiquement à partir de la
+forme des données. Cela peut conduire à un nombre de degrés de liberté
+de 0, associée à une variable explicative, indiquant qu’elle n’a pas
+d’influence dans le modèle et peut donc être supprimée.
+
+    > Mvege <- mgcv::gam(Richness ~ s(ROCK, bs = "cs") + s(LITTER, bs = "cs") +
+    +                  s(BARESOIL, bs = "cs") +
+    +                  s(FallPrec, bs = "cs") +
+    +                  s(SprTmax, bs = "cs"), data = vege)
+
+Diagnostic et interprétation
+----------------------------
+
+Les courbes de réponse sont obtenues par la fonction `plot`.
+
+    > par(mfrow = c(3, 2), mar = c(4, 3, 1, 1))
+    > plot(Mvege)
+
+La fonction `anova` permet d’obtenir les nombres de degrés de liberté
+associés aux différentes variables explicatives.
+
+    > anova(Mvege)
+
+    ## 
+    ## Family: gaussian 
+    ## Link function: identity 
+    ## 
+    ## Formula:
+    ## Richness ~ s(ROCK, bs = "cs") + s(LITTER, bs = "cs") + s(BARESOIL, 
+    ##     bs = "cs") + s(FallPrec, bs = "cs") + s(SprTmax, bs = "cs")
+    ## 
+    ## Approximate significance of smooth terms:
+    ##               edf Ref.df     F  p-value
+    ## s(ROCK)     1.715  9.000 1.353 0.000868
+    ## s(LITTER)   1.885  9.000 0.609 0.039367
+    ## s(BARESOIL) 4.090  9.000 2.280 0.000812
+    ## s(FallPrec) 4.668  9.000 1.594 0.010375
+    ## s(SprTmax)  4.978  9.000 2.491 0.000716
+
+    > summary(Mvege)
+
+    ## 
+    ## Family: gaussian 
+    ## Link function: identity 
+    ## 
+    ## Formula:
+    ## Richness ~ s(ROCK, bs = "cs") + s(LITTER, bs = "cs") + s(BARESOIL, 
+    ##     bs = "cs") + s(FallPrec, bs = "cs") + s(SprTmax, bs = "cs")
+    ## 
+    ## Parametric coefficients:
+    ##             Estimate Std. Error t value Pr(>|t|)    
+    ## (Intercept)   9.9655     0.2033   49.02   <2e-16 ***
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+    ## 
+    ## Approximate significance of smooth terms:
+    ##               edf Ref.df     F  p-value    
+    ## s(ROCK)     1.715      9 1.353 0.000868 ***
+    ## s(LITTER)   1.885      9 0.609 0.039367 *  
+    ## s(BARESOIL) 4.090      9 2.280 0.000812 ***
+    ## s(FallPrec) 4.668      9 1.594 0.010375 *  
+    ## s(SprTmax)  4.978      9 2.491 0.000716 ***
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+    ## 
+    ## R-sq.(adj) =  0.744   Deviance explained = 82.2%
+    ## GCV = 3.5046  Scale est. = 2.3967    n = 58
+
+Il existe une autre fonction de diagnostic des GAM : `gam.check`.
+
+    > gam.check(Mvege)
+
+    ## 
+    ## Method: GCV   Optimizer: magic
+    ## Smoothing parameter selection converged after 12 iterations.
+    ## The RMS GCV score gradient at convergence was 6.047488e-05 .
+    ## The Hessian was positive definite.
+    ## Model rank =  46 / 46 
+    ## 
+    ## Basis dimension (k) checking results. Low p-value (k-index<1) may
+    ## indicate that k is too low, especially if edf is close to k'.
+    ## 
+    ##               k'  edf k-index p-value
+    ## s(ROCK)     9.00 1.71    1.02    0.52
+    ## s(LITTER)   9.00 1.89    1.33    1.00
+    ## s(BARESOIL) 9.00 4.09    1.21    0.93
+    ## s(FallPrec) 9.00 4.67    1.13    0.80
+    ## s(SprTmax)  9.00 4.98    1.05    0.57
+
+Sélection de variables
+----------------------
+
+On peut supprimer les variables dont les contributions ne sont pas
+significatives pour obtenir un *modèle minimal complet*.
+
+    > Mvege2 <- mgcv::gam(Richness ~ s(ROCK, bs = "cs") + 
+    +                  s(BARESOIL, bs = "cs") +
+    +                  s(FallPrec, bs = "cs") +
+    +                  s(SprTmax, bs = "cs"), data = vege)
+
+-   Construire le *modèle minimal complet*.
+-   *Que dire que des courbes de réponses aux différentes variables ?
+    Qu’est-ce que cela semble indiquer ?*
+
+[1] production de lumière d’origine biologique par des organismes
+pélagiques
